@@ -55,6 +55,7 @@ type MySQLBackend struct {
 	haEnabled    bool
 
 	// etcd ha
+	haLockBackend string
 	etcdHABackend physical.HABackend
 }
 
@@ -203,12 +204,27 @@ func NewMySQLBackend(conf map[string]string, logger log.Logger) (physical.Backen
 		}
 	}
 
+	// Default value for ha_enabled
+	haLockBackend, ok := conf["ha_lock_backend"]
+	if !ok || haLockBackend == "" {
+		haLockBackend = haLockBackendMySQL
+	}
+	if haLockBackend != haLockBackendMySQL && haLockBackend != haLockBackendETCD {
+		return nil, fmt.Errorf("ha_lock_backend only support mysql|etcd")
+	}
+	m.haLockBackend = haLockBackend
+
 	// etcd ha 配置初始化
-	if etcdHABackend, err := newEtcdHABackend(conf, logger); err == nil {
+	if haLockBackend == haLockBackendETCD {
+		etcdHABackend, err := newEtcdHABackend(conf, logger)
+		if err != nil {
+			return nil, fmt.Errorf("ha_lock_backend init etcd error: %s", err)
+		}
 		m.etcdHABackend = etcdHABackend
-		logger.Info("init etcd ha backend done", "addr", conf["ha_etcd_address"], "enabled", m.etcdHABackend.HAEnabled())
+		logger.Info("init ha_lock_backend etcd done", "addr", conf["ha_etcd_address"])
 	}
 
+	logger.Info("init ha_lock_backend done", "backend", haLockBackend)
 	return m, nil
 }
 
@@ -462,7 +478,7 @@ func (m *MySQLBackend) List(ctx context.Context, prefix string) ([]string, error
 // LockWith is used for mutual exclusion based on the given key.
 func (m *MySQLBackend) LockWith(key, value string) (physical.Lock, error) {
 	// 优先使用 etcd ha 实现
-	if m.etcdHABackend != nil && m.etcdHABackend.HAEnabled() {
+	if m.haLockBackend == haLockBackendETCD {
 		return m.etcdHABackend.LockWith(key, value)
 	}
 

@@ -27,6 +27,11 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+const (
+	haLockBackendMySQL = "mysql"
+	haLockBackendETCD  = "etcd"
+)
+
 // Verify etcdHABackend satisfies the correct interfaces
 var (
 	_ physical.HABackend = (*etcdHABackend)(nil)
