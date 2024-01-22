@@ -15,7 +15,6 @@ package mysql
 import (
 	"fmt"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -55,15 +54,6 @@ func newEtcdHABackend(conf map[string]string, logger log.Logger) (physical.HABac
 		return nil, fmt.Errorf("missing ha_etcd_address")
 	}
 	endpoints := strings.Split(addr, ",")
-
-	haEnabled := conf["ha_etcd_enabled"]
-	if haEnabled == "" {
-		haEnabled = "false"
-	}
-	haEnabledBool, err := strconv.ParseBool(haEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("value [%v] of 'ha_etcd_enabled' could not be understood", haEnabled)
-	}
 
 	// Get the etcd path form the configuration.
 	path, ok := conf["ha_etcd_path"]
@@ -128,7 +118,7 @@ func newEtcdHABackend(conf map[string]string, logger log.Logger) (physical.HABac
 		etcd:           etcd,
 		permitPool:     physical.NewPermitPool(physical.DefaultParallelOperations),
 		logger:         logger,
-		haEnabled:      haEnabledBool,
+		haEnabled:      true,
 		lockTimeout:    lock,
 		requestTimeout: reqTimeout,
 	}, nil
