@@ -281,6 +281,17 @@ type EtcdLock struct {
 	etcd *clientv3.Client
 }
 
+// NewEtcdLock export etcd lock, use by ha_etcd
+func NewEtcdLock(prefix string, value string, client *clientv3.Client, lockTimeout time.Duration, requestTimeout time.Duration) (physical.Lock, error) {
+	return &EtcdLock{
+		prefix:         prefix,
+		value:          value,
+		etcd:           client,
+		timeout:        lockTimeout,
+		requestTimeout: requestTimeout,
+	}, nil
+}
+
 // Lock is used for mutual exclusion based on the given key.
 func (c *EtcdBackend) LockWith(key, value string) (physical.Lock, error) {
 	p := path.Join(c.path, key)

@@ -53,6 +53,9 @@ type MySQLBackend struct {
 	redirectHost string
 	redirectPort int64
 	haEnabled    bool
+
+	// etcd ha
+	etcdHABackend physical.HABackend
 }
 
 // NewMySQLBackend constructs a MySQL backend using the given API client and
@@ -198,6 +201,12 @@ func NewMySQLBackend(conf map[string]string, logger log.Logger) (physical.Backen
 		if err := m.prepare(name, query); err != nil {
 			return nil, err
 		}
+	}
+
+	// etcd ha 配置初始化
+	if etcdHABackend, err := newEtcdHABackend(conf, logger); err == nil {
+		m.etcdHABackend = etcdHABackend
+		logger.Info("init etcd ha backend done", "addr", conf["ha_etcd_address"], "enabled", m.etcdHABackend.HAEnabled())
 	}
 
 	return m, nil
@@ -452,6 +461,11 @@ func (m *MySQLBackend) List(ctx context.Context, prefix string) ([]string, error
 
 // LockWith is used for mutual exclusion based on the given key.
 func (m *MySQLBackend) LockWith(key, value string) (physical.Lock, error) {
+	// 优先使用 etcd ha 实现
+	if m.etcdHABackend != nil && m.etcdHABackend.HAEnabled() {
+		return m.etcdHABackend.LockWith(key, value)
+	}
+
 	l := &MySQLHALock{
 		in:     m,
 		key:    key,
